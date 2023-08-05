@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <vector>
+#include <algorithm>
 
 namespace cuda
 {
@@ -27,8 +28,7 @@ std::vector<int> vectorAdd(const std::vector<int> &input_1,
   assert(input_1.size() == input_2.size());
   // Allocate memory on the device
   size_t input_size = input_1.size();
-  std::vector<int> output;
-  output.reserve(input_size);
+  std::vector<int> output(input_size, 0);
   int *d_input_1, *d_input_2, *d_output;
   size_t bytes = sizeof(int) * input_size;
   cudaMalloc(&d_input_1, bytes);
@@ -65,6 +65,57 @@ std::vector<int> vectorAdd(const std::vector<int> &input_1,
   cudaFree(d_input_2);
   cudaFree(d_output);
   return output;
+}
+
+std::vector<int> vectorAdd(const std::vector<std::vector<int>> &inputs){
+  size_t inputs_size = inputs.size();
+  assert(inputs_size > 0);
+  const size_t input_size = inputs[0].size();
+  for(int i = 0; i < inputs_size; i++){
+      assert(inputs[i].size() == input_size);
+  }
+  std::vector<int> output = inputs[0];
+  for(auto itr = inputs.cbegin() + 1;itr != inputs.cend(); itr++){
+      output = vectorAdd(output, *itr);
+  }
+  return output;
+}
+
+std::vector<int> vectorAdd_O1(const std::vector<std::vector<int>> &inputs){
+  size_t inputs_size = inputs.size();
+  assert(inputs_size > 0);
+  const size_t input_size = inputs[0].size();
+  for(int i = 0; i < inputs_size; i++){
+      assert(inputs[i].size() == input_size);
+  }
+
+  std::vector<int> output(input_size, 0);
+  int *d_input_1, *d_input_2, *d_output;
+  size_t bytes = sizeof(int) * input_size;
+  int NUM_THREADS = 1 << 10;
+  int NUM_BLOCKS = (input_size + NUM_THREADS - 1) / NUM_THREADS;
+
+  cudaMalloc(&d_input_1, bytes);
+  cudaMalloc(&d_input_2, bytes);
+  cudaMalloc(&d_output, bytes);
+
+  cudaMemcpy(d_input_1, inputs[0].data(), bytes, cudaMemcpyHostToDevice);
+  for(auto itr = inputs.cbegin() + 1; itr != inputs.cend(); itr++) {
+    cudaMemcpy(d_input_2, (*itr).data(), bytes, cudaMemcpyHostToDevice);
+    __impl::vectorAdd<<<NUM_BLOCKS, NUM_THREADS>>>(d_input_1, d_input_2, d_output, input_size);
+    int *tmp = d_input_1;
+    d_input_1 = d_output;
+    d_output = tmp;
+  }
+
+  cudaMemcpy(output.data(), d_input_1, bytes, cudaMemcpyDeviceToHost);
+
+  // Free memory on device
+  cudaFree(d_input_1);
+  cudaFree(d_input_2);
+  cudaFree(d_output);
+  return output;
+
 }
 
 } //cuda
