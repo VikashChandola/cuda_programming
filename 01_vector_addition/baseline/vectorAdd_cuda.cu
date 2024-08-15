@@ -103,9 +103,7 @@ std::vector<int> vectorAdd_O1(const std::vector<std::vector<int>> &inputs){
   for(auto itr = inputs.cbegin() + 1; itr != inputs.cend(); itr++) {
     cudaMemcpy(d_input_2, (*itr).data(), bytes, cudaMemcpyHostToDevice);
     __impl::vectorAdd<<<NUM_BLOCKS, NUM_THREADS>>>(d_input_1, d_input_2, d_output, input_size);
-    int *tmp = d_input_1;
     d_input_1 = d_output;
-    d_output = tmp;
   }
 
   cudaMemcpy(output.data(), d_input_1, bytes, cudaMemcpyDeviceToHost);
