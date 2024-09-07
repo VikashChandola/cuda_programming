@@ -17,10 +17,17 @@ void verify_result(std::vector<std::vector<int>> &inputs, std::vector<int> &outp
   }
 }
 
-int main() {
+int main(int argc, char** argv) {
+  int INPUTS_SIZE = 10;
+  if(argc > 1 ){
+    INPUTS_SIZE = std::stoi(argv[1]);
+    if(INPUTS_SIZE < 3){
+      INPUTS_SIZE = 10;
+    }
+    std::cout << "Using input size " <<  INPUTS_SIZE << std::endl;
+  }
   // Array size of 2^16 (65536 elements)
   constexpr int N = 1 << 16;
-  constexpr int INPUTS_SIZE = 10;
   constexpr size_t bytes = sizeof(int) * N;
 
   // Vectors for holding the host-side (CPU-side) data
