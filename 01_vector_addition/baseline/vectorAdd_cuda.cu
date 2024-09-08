@@ -81,7 +81,8 @@ std::vector<int> vectorAdd(const std::vector<std::vector<int>> &inputs){
   return output;
 }
 
-std::vector<int> vectorAdd_O1(const std::vector<std::vector<int>> &inputs){
+std::vector<int> vectorAdd_O1(const std::vector<std::vector<int>> &inputs)
+{
   size_t inputs_size = inputs.size();
   assert(inputs_size > 0);
   const size_t input_size = inputs[0].size();
@@ -113,41 +114,48 @@ std::vector<int> vectorAdd_O1(const std::vector<std::vector<int>> &inputs){
   cudaFree(d_input_2);
   cudaFree(d_output);
   return output;
-
 }
 
 std::vector<int> vectorAdd_O2(const std::vector<std::vector<int>> &inputs){
-  size_t inputs_size = inputs.size();
-  assert(inputs_size > 0);
+  size_t input_count = inputs.size();
+  assert(input_count > 0);
   const size_t input_size = inputs[0].size();
-  for(int i = 0; i < inputs_size; i++){
+  size_t bytes = sizeof(int) * input_size;
+  for(int i = 0; i < input_count; i++) {
       assert(inputs[i].size() == input_size);
   }
 
   std::vector<int> output(input_size, 0);
-  int *d_input_1, *d_input_2, *d_output;
-  size_t bytes = sizeof(int) * input_size;
-  int NUM_THREADS = 1 << 10;
-  int NUM_BLOCKS = (input_size + NUM_THREADS - 1) / NUM_THREADS;
-
-  cudaMalloc(&d_input_1, bytes);
-  cudaMalloc(&d_input_2, bytes);
-  cudaMalloc(&d_output, bytes);
-
-  cudaMemcpy(d_input_1, inputs[0].data(), bytes, cudaMemcpyHostToDevice);
-  for(auto itr = inputs.cbegin() + 1; itr != inputs.cend(); itr++) {
-    cudaMemcpy(d_input_2, (*itr).data(), bytes, cudaMemcpyHostToDevice);
-    __impl::vectorAdd<<<NUM_BLOCKS, NUM_THREADS>>>(d_input_1, d_input_2, d_output, input_size);
-    d_input_1 = d_output;
+  int **pd_input;
+  cudaMalloc(&pd_input, input_count * sizeof(int*));
+  for(int i = 0; i < input_count; i++){
+    cudaMalloc(&pd_input[i], bytes);
+    cudaMemcpy(pd_input[i], inputs[i].data(), bytes, cudaMemcpyHostToDevice);
   }
 
-  cudaMemcpy(output.data(), d_input_1, bytes, cudaMemcpyDeviceToHost);
-
-  // Free memory on device
-  cudaFree(d_input_1);
-  cudaFree(d_input_2);
-  cudaFree(d_output);
+  int NUM_THREADS = 1 << 10;
+  int NUM_BLOCKS = (input_size + NUM_THREADS - 1) / NUM_THREADS;
+  int BS = 1;
+  while(true)
+  {
+    int a = 0, b = a + BS, step = 2*BS;
+    bool computed = false;
+    while(a < input_count && b < input_count)
+    {
+      __impl::vectorAdd<<<NUM_BLOCKS, NUM_THREADS>>>(pd_input[a], pd_input[b], pd_input[a], input_size);
+      a += step;
+      b += step;
+    }
+    if(!computed){
+      break;
+    }
+    BS << 1;
+  }
+  cudaMemcpy(output.data(), d_input[0], bytes, cudaMemcpyDeviceToHost);
+  for(int i = 0; i < input_count; i++){
+    cudaFree(pd_input[i]);
+  }
+  cudaFree(pd_input);
   return output;
-
 }
 } //cuda

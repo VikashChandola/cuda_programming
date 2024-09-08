@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     std::cout << "Using input size " <<  INPUTS_SIZE << std::endl;
   }
   // Array size of 2^16 (65536 elements)
-  constexpr int N = 1 << 16;
+  constexpr int N = 1 << 4;
   constexpr size_t bytes = sizeof(int) * N;
 
   // Vectors for holding the host-side (CPU-side) data
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   for(int inputs_size = 0; inputs_size < INPUTS_SIZE; inputs_size++){
     // Initialize random numbers in each array
     for (int i = 0; i < N; i++) {
-      a[i] = rand() % 100;
+      a[i] = rand() % 10;
     }
     inputs.push_back(a);
   }
